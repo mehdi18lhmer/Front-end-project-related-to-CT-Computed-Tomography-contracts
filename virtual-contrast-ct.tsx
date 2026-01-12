@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Upload, Download, Moon, Sun, ZoomIn, ZoomOut, RotateCcw, Loader, User, FileImage, AlertCircle, CheckCircle, Eye, Activity, Zap, Brain, Sparkles, ArrowRight } from 'lucide-react';
+import { gsap } from 'gsap';
+import { useGSAP } from '@gsap/react';
 
 // Enhanced Mock API service with more realistic responses
 const apiService = {
@@ -110,6 +112,47 @@ const FileUpload = ({ onFileSelect, selectedFile, isProcessing }) => {
   const fileInputRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const container = useRef();
+
+  useGSAP(
+    () => {
+      if (isDragOver) {
+        gsap.to('.drop-zone', {
+          scale: 1.05,
+          borderColor: '#3b82f6', // blue-500
+          backgroundColor: '#eff6ff', // blue-50
+          duration: 0.3,
+        });
+      } else {
+        gsap.to('.drop-zone', {
+          scale: 1,
+          borderColor: '#d1d5db', // gray-300
+          backgroundColor: 'transparent',
+          duration: 0.3,
+        });
+      }
+    },
+    { scope: container, dependencies: [isDragOver] }
+  );
+
+  useGSAP(() => {
+    if (uploadProgress > 0) {
+        gsap.to('.progress-bar', {
+            width: `${uploadProgress}%`,
+            duration: 0.5,
+            ease: 'power2.inOut'
+        });
+    }
+  }, { scope: container, dependencies: [uploadProgress]});
+
+  useGSAP(() => {
+    if (selectedFile) {
+        const tl = gsap.timeline();
+        tl.fromTo('.success-check', {scale: 0.5, opacity: 0}, {scale: 1, opacity: 1, duration: 0.5, ease: 'back.out(1.7)'})
+          .fromTo('.success-sparkles', {scale: 0, opacity: 0}, {scale: 1, opacity: 1, duration: 0.5, stagger: 0.1}, "-=0.3")
+          .fromTo('.file-info', {y: 20, opacity: 0}, {y: 0, opacity: 1, duration: 0.5, ease: 'power2.out'}, "-=0.3");
+    }
+  }, { scope: container, dependencies: [selectedFile]});
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -133,7 +176,7 @@ const FileUpload = ({ onFileSelect, selectedFile, isProcessing }) => {
         setTimeout(() => {
           onFileSelect(file);
           setUploadProgress(0);
-        }, 1000);
+        }, 1100); // Increased timeout to allow progress bar animation to finish
       } else {
         alert('Please select a valid CT scan file (DICOM, PNG, or JPEG)');
       }
@@ -161,7 +204,7 @@ const FileUpload = ({ onFileSelect, selectedFile, isProcessing }) => {
   };
 
   return (
-    <div className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-8 mb-8 transition-all duration-300 hover:shadow-2xl">
+    <div ref={container} className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-8 mb-8 transition-all duration-300 hover:shadow-2xl">
       <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-blue-500/5 rounded-2xl"></div>
       
       <div className="relative">
@@ -176,10 +219,8 @@ const FileUpload = ({ onFileSelect, selectedFile, isProcessing }) => {
         </div>
 
         <div
-          className={`relative border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 ${
-            isDragOver
-              ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/20 scale-105'
-              : isProcessing
+          className={`drop-zone relative border-2 border-dashed rounded-2xl p-12 text-center transition-colors duration-300 ${
+            isProcessing
               ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-750'
               : 'border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-900/20 cursor-pointer'
           } ${selectedFile ? 'border-green-400 dark:border-green-500 bg-green-50 dark:bg-green-900/20' : ''}`}
@@ -194,8 +235,8 @@ const FileUpload = ({ onFileSelect, selectedFile, isProcessing }) => {
                 <Loader className="w-16 h-16 mx-auto text-blue-500 animate-spin" />
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div 
-                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress}%` }}
+                    className="progress-bar bg-blue-500 h-2 rounded-full"
+                    style={{ width: `0%` }} // initial width set to 0, GSAP will handle it
                   ></div>
                 </div>
                 <p className="text-blue-600 dark:text-blue-400 font-medium">Uploading... {uploadProgress}%</p>
@@ -203,10 +244,10 @@ const FileUpload = ({ onFileSelect, selectedFile, isProcessing }) => {
             ) : selectedFile ? (
               <div className="space-y-4">
                 <div className="relative">
-                  <CheckCircle className="w-16 h-16 mx-auto text-green-500 animate-bounce" />
-                  <Sparkles className="w-6 h-6 absolute top-0 right-1/2 transform translate-x-8 text-yellow-400 animate-pulse" />
+                  <CheckCircle className="success-check w-16 h-16 mx-auto text-green-500" />
+                  <Sparkles className="success-sparkles w-6 h-6 absolute top-0 right-1/2 transform translate-x-8 text-yellow-400" />
                 </div>
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border">
+                <div className="file-info bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border">
                   <p className="font-bold text-gray-900 dark:text-white text-lg">{selectedFile.name}</p>
                   <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                     {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • Ready for processing
@@ -283,6 +324,17 @@ const ImageViewer = ({ imageUrl, title, isOriginal = false, onDownload }) => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const imageRef = useRef();
+
+  useGSAP(() => {
+    gsap.to(imageRef.current, {
+      scale: zoom,
+      x: position.x,
+      y: position.y,
+      duration: 0.5,
+      ease: 'power3.out'
+    });
+  }, { dependencies: [zoom, position] });
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.25, 8));
   const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.25, 0.1));
@@ -381,11 +433,11 @@ const ImageViewer = ({ imageUrl, title, isOriginal = false, onDownload }) => {
         {imageUrl ? (
           <div className="relative w-full h-full">
             <img
+              ref={imageRef}
               src={imageUrl}
               alt={title}
-              className="absolute inset-0 w-full h-full object-contain transition-all duration-200 ease-out"
+              className="absolute inset-0 w-full h-full object-contain"
               style={{
-                transform: `scale(${zoom}) translate(${position.x / zoom}px, ${position.y / zoom}px)`,
                 cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
               }}
               draggable={false}
@@ -427,22 +479,47 @@ const ProcessingStatus = ({ isProcessing, result }) => {
     'Optimizing image quality...',
     'Finalizing results...'
   ];
+  const container = useRef();
 
-  useEffect(() => {
+  useGSAP(() => {
     if (isProcessing) {
-      const interval = setInterval(() => {
-        setCurrentStage(prev => (prev + 1) % stages.length);
-      }, 800);
-      return () => clearInterval(interval);
+        const tl = gsap.timeline({repeat: -1});
+        tl.to('.progress-bar-inner', { width: '100%', duration: 4, ease: 'power1.inOut' })
+          .to('.sparkle', { y: -20, stagger: 0.2, duration: 0.5, ease: 'power2.out' })
+          .to('.sparkle', { opacity: 0, duration: 0.5 }, "-=0.5");
+
+        const stageTl = gsap.timeline({repeat: -1, repeatDelay: 1});
+        stages.forEach((stage, index) => {
+            stageTl.to('.stage-text', {
+                onStart: () => setCurrentStage(index),
+                duration: 0.01 // Use a very short duration to trigger onStart
+            }, index * 0.8)
+        });
+
     } else {
-      setCurrentStage(0);
+      gsap.killTweensOf(['.progress-bar-inner', '.sparkle', '.stage-text']);
     }
-  }, [isProcessing]);
+  }, { scope: container, dependencies: [isProcessing] });
+
+  useGSAP(() => {
+    if (result) {
+        gsap.fromTo('.result-card', {
+            opacity: 0,
+            y: 50
+        }, {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            stagger: 0.1,
+            ease: 'power2.out'
+        });
+    }
+  }, { scope: container, dependencies: [result] });
 
   if (!isProcessing && !result) return null;
 
   return (
-    <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 p-8 mb-8 overflow-hidden">
+    <div ref={container} className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 p-8 mb-8 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 rounded-2xl"></div>
       
       <div className="relative">
@@ -474,15 +551,15 @@ const ProcessingStatus = ({ isProcessing, result }) => {
           <div className="space-y-6">
             <div className="relative">
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full transition-all duration-1000 animate-pulse" style={{ width: '78%' }}></div>
+                <div className="progress-bar-inner bg-gradient-to-r from-indigo-500 to-purple-500 h-3 rounded-full" style={{ width: '0%' }}></div>
               </div>
               <div className="absolute -top-1 left-3/4 transform -translate-x-1/2">
-                <Sparkles className="w-6 h-6 text-purple-500 animate-bounce" />
+                <Sparkles className="sparkle w-6 h-6 text-purple-500" />
               </div>
             </div>
             
             <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4">
-              <p className="text-indigo-700 dark:text-indigo-300 font-medium text-center">
+              <p className="stage-text text-indigo-700 dark:text-indigo-300 font-medium text-center">
                 {stages[currentStage]}
               </p>
             </div>
@@ -505,25 +582,25 @@ const ProcessingStatus = ({ isProcessing, result }) => {
           </div>
         ) : result && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-center">
+            <div className="result-card bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-center">
               <Zap className="w-8 h-8 text-green-600 mx-auto mb-2" />
               <p className="font-semibold text-green-700 dark:text-green-300">Processing Time</p>
               <p className="text-2xl font-bold text-green-800 dark:text-green-200">{result.processingTime}</p>
             </div>
             
-            <div className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4 text-center">
+            <div className="result-card bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4 text-center">
               <Brain className="w-8 h-8 text-blue-600 mx-auto mb-2" />
               <p className="font-semibold text-blue-700 dark:text-blue-300">Confidence</p>
               <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">{(result.confidence * 100).toFixed(1)}%</p>
             </div>
             
-            <div className="bg-purple-50 dark:bg-purple-900/30 rounded-xl p-4 text-center">
+            <div className="result-card bg-purple-50 dark:bg-purple-900/30 rounded-xl p-4 text-center">
               <Activity className="w-8 h-8 text-purple-600 mx-auto mb-2" />
               <p className="font-semibold text-purple-700 dark:text-purple-300">Quality</p>
               <p className="text-lg font-bold text-purple-800 dark:text-purple-200">{result.enhancement_quality}</p>
             </div>
             
-            <div className="bg-orange-50 dark:bg-orange-900/30 rounded-xl p-4 text-center">
+            <div className="result-card bg-orange-50 dark:bg-orange-900/30 rounded-xl p-4 text-center">
               <Eye className="w-8 h-8 text-orange-600 mx-auto mb-2" />
               <p className="font-semibold text-orange-700 dark:text-orange-300">Detection</p>
               <p className="text-sm font-bold text-orange-800 dark:text-orange-200">{result.tissue_detection}</p>
@@ -545,6 +622,35 @@ const VirtualContrastCT = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingResult, setProcessingResult] = useState(null);
   const [error, setError] = useState('');
+  const mainContainer = useRef();
+
+  useGSAP(() => {
+    gsap.fromTo('.main-content > *', {
+        opacity: 0,
+        y: 50
+    }, {
+        opacity: 1,
+        y: 0,
+        duration: 0.5,
+        stagger: 0.1,
+        ease: 'power2.out'
+    });
+  }, { scope: mainContainer });
+
+  useGSAP(() => {
+    if (error) {
+        gsap.fromTo('.error-message', {
+            opacity: 0,
+            y: -20
+        }, {
+            opacity: 1,
+            y: 0,
+            duration: 0.5,
+            ease: 'bounce.out'
+        });
+    }
+  }, { scope: mainContainer, dependencies: [error] });
+
 
   const handleFileSelect = useCallback((file) => {
     setSelectedFile(file);
@@ -639,10 +745,10 @@ const VirtualContrastCT = () => {
       </header>
 
       {/* Main Content */}
-      <main className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main ref={mainContainer} className="main-content relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50/90 dark:bg-red-900/30 backdrop-blur-sm border border-red-200 dark:border-red-700 rounded-2xl p-6 mb-8 shadow-lg">
+          <div className="error-message bg-red-50/90 dark:bg-red-900/30 backdrop-blur-sm border border-red-200 dark:border-red-700 rounded-2xl p-6 mb-8 shadow-lg">
             <div className="flex items-center">
               <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 mr-3" />
               <div>
